@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stryktips Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0a0a0a;
+    --surface:  #111111;
+    --surface2: #181818;
+    --border:   #242424;
+    --border2:  #2e2e2e;
+    --text:     #e8e8e8;
+    --muted:    #666;
+    --muted2:   #444;
+    --green:    #00d084;
+    --green-bg: #00d08414;
+    --green-dim:#00864f;
+    --blue:     #4f9eff;
+    --blue-bg:  #4f9eff14;
+    --red:      #ff5252;
+    --red-bg:   #ff525214;
+    --amber:    #ffb930;
+    --amber-bg: #ffb93014;
+    --mono:     'Space Mono', monospace;
+    --sans:     'DM Sans', sans-serif;
+    --radius:   6px;
+    --radius-lg:10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; }
+  body { min-height: 100vh; }
+
+  /* Layout */
+  .app { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 24px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .main { padding: 32px 28px; max-width: 1100px; }
+
+  /* Sidebar */
+  .logo { padding: 0 20px 28px; border-bottom: 1px solid var(--border); }
+  .logo-mark { font-family: var(--mono); font-size: 11px; color: var(--green); letter-spacing: 0.15em; text-transform: uppercase; }
+  .logo-name { font-size: 17px; font-weight: 600; margin-top: 4px; }
+  .nav { padding: 16px 0; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-size: 13px; color: var(--muted); cursor: pointer; transition: all 0.15s; border-left: 2px solid transparent; }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--green); border-left-color: var(--green); background: var(--green-bg); font-weight: 500; }
+  .nav-icon { width: 16px; text-align: center; font-size: 13px; }
+  .nav-section { padding: 16px 20px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted2); }
+  .sidebar-stats { margin: 16px; padding: 14px; background: var(--surface2); border-radius: var(--radius-lg); border: 1px solid var(--border); }
+  .ss-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .ss-val { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--green); margin: 2px 0; }
+  .ss-sub { font-size: 11px; color: var(--muted); }
+  .countdown { font-family: var(--mono); font-size: 13px; color: var(--amber); background: var(--amber-bg); padding: 8px 16px; margin: 0 16px; border-radius: var(--radius); text-align: center; }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .panel-header { margin-bottom: 24px; }
+  .panel-title { font-size: 22px; font-weight: 600; }
+  .panel-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  /* Metrics row */
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; }
+  .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+  .metric-value { font-family: var(--mono); font-size: 24px; font-weight: 700; margin-top: 4px; }
+  .metric-value.green { color: var(--green); }
+  .metric-value.amber { color: var(--amber); }
+  .metric-value.red   { color: var(--red); }
+  .metric-value.blue  { color: var(--blue); }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-family: var(--sans); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: none; }
+  .btn-primary { background: var(--green); color: #000; }
+  .btn-primary:hover { background: #00b870; }
+  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border2); }
+  .btn-ghost:hover { background: var(--surface2); border-color: var(--border2); }
+  .btn-danger { background: var(--red-bg); color: var(--red); border: 1px solid transparent; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+
+  /* Match cards */
+  .match-list { display: flex; flex-direction: column; gap: 10px; }
+  .match-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; transition: border-color 0.15s; }
+  .match-card:hover { border-color: var(--border2); }
+  .match-card.flagged { border-left: 3px solid var(--amber); }
+  .match-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .match-num-badge { font-family: var(--mono); font-size: 11px; background: var(--surface2); border: 1px solid var(--border); padding: 2px 7px; border-radius: 4px; color: var(--muted); min-width: 28px; text-align: center; }
+  .match-names { flex: 1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .match-names input { background: transparent; border: none; color: var(--text); font-family: var(--sans); font-size: 13px; font-weight: 500; width: 130px; outline: none; border-bottom: 1px solid transparent; }
+  .match-names input:focus { border-bottom-color: var(--border2); }
+  .match-vs { font-size: 10px; color: var(--muted2); font-family: var(--mono); }
+  .chip { font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 500; }
+  .chip-euro { background: var(--blue-bg); color: var(--blue); }
+  .chip-weather { background: var(--amber-bg); color: var(--amber); }
+  .chip-rest { background: var(--green-bg); color: var(--green-dim); }
+  .chip-sharp { background: var(--red-bg); color: var(--red); }
+
+  .match-inputs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 10px; }
+  .match-inputs-2 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 10px; }
+  .inp-grp { display: flex; flex-direction: column; gap: 3px; }
+  .inp-lbl { font-size: 10px; color: var(--muted); }
+  .inp-lbl.h { color: #4db88a; }
+  .inp-lbl.a { color: #e05a5a; }
+  input[type=number], input[type=text], select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    font-family: var(--sans); font-size: 12px; padding: 5px 7px; border-radius: var(--radius);
+    width: 100%; outline: none; transition: border-color 0.15s;
+  }
+  input:focus, select:focus { border-color: var(--border2); }
+
+  /* Probability bar */
+  .prob-row { margin-top: 8px; }
+  .prob-bar { display: flex; height: 5px; border-radius: 3px; overflow: hidden; gap: 1px; }
+  .pb-1 { background: var(--green); transition: width 0.3s; }
+  .pb-x { background: var(--blue); transition: width 0.3s; }
+  .pb-2 { background: var(--red); transition: width 0.3s; }
+  .prob-nums { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; margin-top: 4px; }
+  .prob-nums .p1n { color: var(--green); }
+  .prob-nums .pxn { color: var(--blue); }
+  .prob-nums .p2n { color: var(--red); }
+
+  /* Sign selector */
+  .sign-row { display: flex; gap: 5px; margin-top: 8px; }
+  .sign-btn { flex: 1; padding: 6px; font-family: var(--mono); font-size: 12px; font-weight: 700;
+    border: 1px solid var(--border2); border-radius: var(--radius); background: var(--surface2);
+    color: var(--muted); cursor: pointer; text-align: center; transition: all 0.15s; }
+  .sign-btn:hover { color: var(--text); border-color: var(--border2); }
+  .sign-btn.s1.on  { background: var(--green-bg); color: var(--green); border-color: var(--green-dim); }
+  .sign-btn.sX.on  { background: var(--blue-bg);  color: var(--blue);  border-color: var(--blue); }
+  .sign-btn.s2.on  { background: var(--red-bg);   color: var(--red);   border-color: var(--red); }
+
+  /* Streck display */
+  .streck-row { display: flex; gap: 4px; margin-top: 6px; font-size: 10px; }
+  .streck-pill { flex: 1; text-align: center; padding: 3px 4px; border-radius: 4px; border: 1px solid var(--border); }
+  .streck-pill span { display: block; color: var(--muted); font-size: 9px; }
+  .streck-pill b { font-family: var(--mono); color: var(--text); }
+
+  /* Edge badges */
+  .edge-row { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+  .edge-badge { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-family: var(--mono); }
+  .edge-pos { background: var(--green-bg); color: var(--green); }
+  .edge-neg { background: var(--red-bg); color: var(--red); }
+  .edge-neu { background: var(--surface2); color: var(--muted); }
+
+  /* System panel */
+  .system-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; }
+  .system-rows-big { font-family: var(--mono); font-size: 40px; font-weight: 700; color: var(--green); }
+  .system-detail { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.8; }
+  .system-type-badge { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: var(--radius); background: var(--blue-bg); color: var(--blue); margin-bottom: 12px; }
+  .sign-summary { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+  .ss-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .ss-row:last-child { border-bottom: none; }
+  .ss-signs { display: flex; gap: 4px; }
+  .sign-tag { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 3px; }
+  .sign-tag.t1 { background: var(--green-bg); color: var(--green); }
+  .sign-tag.tX { background: var(--blue-bg);  color: var(--blue); }
+  .sign-tag.t2 { background: var(--red-bg);   color: var(--red); }
+  .conf-tag { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 3px; }
+  .conf-high { background: var(--green-bg); color: var(--green); }
+  .conf-mid  { background: var(--amber-bg); color: var(--amber); }
+  .conf-low  { background: var(--red-bg);   color: var(--red); }
+
+  /* Params panel */
+  .params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .param-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+  .param-title { font-size: 12px; font-weight: 500; margin-bottom: 10px; }
+  .slider-grp { display: flex; flex-direction: column; gap: 10px; }
+  .slider-row { display: flex; flex-direction: column; gap: 4px; }
+  .slider-meta { display: flex; justify-content: space-between; font-size: 11px; }
+  .slider-name { color: var(--muted); }
+  .slider-val-display { font-family: var(--mono); color: var(--text); }
+  input[type=range] { width: 100%; accent-color: var(--green); }
+  .formula-box { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 2; margin-top: 12px; }
+
+  /* History panel */
+  .hist-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .hist-table th { text-align: left; padding: 8px 12px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+  .hist-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .hist-table tr:hover td { background: var(--surface2); }
+  .correct-count { font-family: var(--mono); font-size: 13px; font-weight: 700; }
+  .correct-13 { color: var(--green); }
+  .correct-11 { color: var(--amber); }
+  .correct-low { color: var(--red); }
+
+  /* Scraper panel */
+  .scraper-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; }
+  .scraper-box h3 { font-size: 14px; margin-bottom: 10px; }
+  .code-block { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; font-family: var(--mono); font-size: 11px; color: #aaa; line-height: 1.8; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; }
+  .json-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 11px; padding: 12px; min-height: 120px; outline: none; resize: vertical; }
+  .json-input:focus { border-color: var(--border2); }
+  .scraper-status { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 20px; }
+  .scraper-status.ok { color: var(--green); }
+  .scraper-status.err { color: var(--red); }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; }
+    .main { padding: 20px 16px; }
+    .match-inputs, .match-inputs-2 { grid-template-columns: repeat(3, 1fr); }
+    .params-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">▸ v1.0</div>
+      <div class="logo-name">Stryktips<br>Analyzer</div>
+    </div>
+    <div style="padding: 12px 16px;">
+      <div class="countdown" id="countdown-sidebar">Ingen omgång laddad</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Analys</div>
+      <div class="nav-item active" data-panel="matches">
+        <span class="nav-icon">⊞</span> Matchanalys
+      </div>
+      <div class="nav-item" data-panel="system">
+        <span class="nav-icon">◈</span> Systembyggare
+      </div>
+      <div class="nav-item" data-panel="params">
+        <span class="nav-icon">⚙</span> Poisson-modell
+      </div>
+      <div class="nav-section">Data</div>
+      <div class="nav-item" data-panel="scraper">
+        <span class="nav-icon">↓</span> Hämta odds
+      </div>
+      <div class="nav-item" data-panel="history">
+        <span class="nav-icon">◷</span> Historik
+      </div>
+    </nav>
+    <div class="sidebar-stats">
+      <div class="ss-label">Snitt rätt / omgång</div>
+      <div class="ss-val" id="sb-avg">–</div>
+      <div class="ss-sub" id="sb-rounds">Inga omgångar loggade</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- MATCHES -->
+    <div class="panel active" id="panel-matches">
+      <div class="panel-header">
+        <div class="panel-title">Matchanalys</div>
+        <div class="panel-sub">Mata in xG, form och kontextuella faktorer. Klicka tecken för att gardera.</div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-label">Konfidens</div><div class="metric-value green" id="m-conf">–</div></div>
+        <div class="metric"><div class="metric-label">Säkra tecken</div><div class="metric-value blue" id="m-sure">–</div></div>
+        <div class="metric"><div class="metric-label">Garderingar</div><div class="metric-value amber" id="m-gard">–</div></div>
+        <div class="metric"><div class="metric-label">Snitt edge</div><div class="metric-value" id="m-edge">–</div></div>
+        <div class="metric"><div class="metric-label">Antal rader</div><div class="metric-value" id="m-rows">–</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="calcAll()">▶ Beräkna allt</button>
+        <button class="btn btn-ghost" onclick="autoSelect()">⚡ Auto-välj tecken</button>
+        <button class="btn btn-ghost" onclick="resetAll()">↺ Nollställ</button>
+      </div>
+      <div class="match-list" id="match-list"></div>
+    </div>
+
+    <!-- SYSTEM -->
+    <div class="panel" id="panel-system">
+      <div class="panel-header">
+        <div class="panel-title">Systembyggare</div>
+        <div class="panel-sub">Rekommenderat system baserat på konfidens. Fokus på 13 rätt.</div>
+      </div>
+      <div class="system-box">
+        <div class="system-type-badge" id="sys-type-badge">Kör beräkning först</div>
+        <div class="system-rows-big" id="sys-rows">–</div>
+        <div class="system-detail" id="sys-detail"></div>
+      </div>
+      <div class="system-box">
+        <div style="font-size:13px;font-weight:500;margin-bottom:12px;">Teckensummering</div>
+        <div class="sign-summary" id="sign-summary"></div>
+      </div>
+    </div>
+
+    <!-- PARAMS -->
+    <div class="panel" id="panel-params">
+      <div class="panel-header">
+        <div class="panel-title">Poisson-modell</div>
+        <div class="panel-sub">Kalibrera viktparametrarna. Justeras automatiskt med historiska resultat.</div>
+      </div>
+      <div class="params-grid">
+        <div class="param-card">
+          <div class="param-title">Matchfaktorer</div>
+          <div class="slider-grp" id="sliders-main"></div>
+        </div>
+        <div class="param-card">
+          <div class="param-title">Autokalibrering</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:12px;">
+            Modellen justerar automatiskt <b>hemmafördel</b> baserat på dina loggade resultat.
+            Minst 10 matchresultat krävs för kalibrering.<br><br>
+            Brier-score mäter kalibreringskvalitet (lägre = bättre).
+          </div>
+          <div class="metrics" style="grid-template-columns:1fr 1fr;">
+            <div class="metric"><div class="metric-label">Brier score</div><div class="metric-value" id="brier-val">–</div></div>
+            <div class="metric"><div class="metric-label">Kalibrerings-ronder</div><div class="metric-value blue" id="calib-rounds">0</div></div>
+          </div>
+          <button class="btn btn-ghost" onclick="runCalibration()" style="margin-top:8px;">↺ Kör kalibrering nu</button>
+        </div>
+      </div>
+      <div class="formula-box">
+λ_hem = xG_hem × hemmafördel × (1 + formvikt×(form−0.5)) × (1−europafatigue) × (1−motivvikt×(1−motiv)) × (1−skadavikt×skada) × (1−vädervikt×väder)
+
+P(k mål) = e^(−λ) × λ^k / k!   →   summering ger P(1), P(X), P(2)
+      </div>
+    </div>
+
+    <!-- SCRAPER -->
+    <div class="panel" id="panel-scraper">
+      <div class="panel-header">
+        <div class="panel-title">Hämta realtidsdata</div>
+        <div class="panel-sub">Kör via Claude i Chrome / Cowork. Klistra in JSON-svaret nedan.</div>
+      </div>
+      <div class="scraper-box">
+        <h3>Steg 1 — Kopiera prompten till Cowork</h3>
+        <div class="code-block" id="cowork-prompt"></div>
+        <button class="btn btn-ghost" style="margin-top:10px;" onclick="copyPrompt()">⎘ Kopiera prompt</button>
+      </div>
+      <div class="scraper-box">
+        <h3>Steg 2 — Klistra in JSON-svaret här</h3>
+        <textarea class="json-input" id="json-input" placeholder='{"round":"1234","deadline":"2025-03-01 15:00","matches":[...]}'></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn btn-primary" onclick="importJSON()">↓ Importera data</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('json-input').value=''">Rensa</button>
+        </div>
+        <div class="scraper-status" id="scraper-status"></div>
+      </div>
+      <div class="scraper-box">
+        <h3>Steg 3 — Automatisk deadline-timer</h3>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Importera omgångsdata med deadline-fält för att aktivera nedräkning.</div>
+        <div class="countdown" id="countdown-big" style="font-size:18px;padding:14px;">Ingen deadline satt</div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="panel" id="panel-history">
+      <div class="panel-header">
+        <div class="panel-title">Historik & statistik</div>
+        <div class="panel-sub">Logga resultat för självlärande kalibrering.</div>
+      </div>
+      <div class="metrics" id="hist-metrics">
+        <div class="metric"><div class="metric-label">Totala omgångar</div><div class="metric-value blue" id="h-rounds">0</div></div>
+        <div class="metric"><div class="metric-label">Träffsäkerhet</div><div class="metric-value" id="h-acc">–</div></div>
+        <div class="metric"><div class="metric-label">Snitt rätt</div><div class="metric-value" id="h-avg">–</div></div>
+        <div class="metric"><div class="metric-label">13 rätt</div><div class="metric-value green" id="h-perfect">0</div></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="exportHistoryCSV()">↓ Exportera CSV</button>
+        <button class="btn btn-danger" onclick="clearHistory()">✕ Rensa historik</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="hist-table">
+          <thead>
+            <tr>
+              <th>Omgång</th><th>Datum</th><th>Rätt</th><th>Accuracy</th><th>Logga utfall</th>
+            </tr>
+          </thead>
+          <tbody id="hist-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script type="module">
+// ── Inline model (no build step needed) ──────────────────────
+function poissonPMF(k, lambda) {
+  if (lambda <= 0) return k === 0 ? 1 : 0;
+  let logP = -lambda + k * Math.log(lambda);
+  for (let i = 1; i <= k; i++) logP -= Math.log(i);
+  return Math.exp(logP);
+}
+
+const DEFAULT_WEIGHTS = {
+  homeAdv: 1.25, euroFatigue: 0.35, formWeight: 0.55,
+  weatherWeight: 0.20, motivWeight: 0.30, injuryWeight: 0.40, h2hWeight: 0.10
+};
+
+const SLIDER_DEFS = [
+  { key: 'homeAdv',       label: 'Hemmafördel',         min: 1.0, max: 1.6,  step: 0.01 },
+  { key: 'euroFatigue',   label: 'Europa-fatigue',       min: 0,   max: 1.0,  step: 0.01 },
+  { key: 'formWeight',    label: 'Formvikt',             min: 0,   max: 1.0,  step: 0.01 },
+  { key: 'weatherWeight', label: 'Väderpåverkan',        min: 0,   max: 1.0,  step: 0.01 },
+  { key: 'motivWeight',   label: 'Motivationsvikt',      min: 0,   max: 1.0,  step: 0.01 },
+  { key: 'injuryWeight',  label: 'Skadavikt',            min: 0,   max: 1.0,  step: 0.01 },
+  { key: 'h2hWeight',     label: 'H2H-historik',         min: 0,   max: 0.5,  step: 0.01 },
+];
+
+const N = 13;
+let weights = loadWeights();
+let matches = loadMatches();
+let deadline = null;
+
+// ── Storage ────────────────────────────────────────────────────
+function loadWeights() {
+  try { return { ...DEFAULT_WEIGHTS, ...JSON.parse(localStorage.getItem('sa_weights') || '{}') }; }
+  catch { return { ...DEFAULT_WEIGHTS }; }
+}
+function saveWeights() { localStorage.setItem('sa_weights', JSON.stringify(weights)); }
+function loadMatches() {
+  try {
+    const s = JSON.parse(localStorage.getItem('sa_matches') || 'null');
+    if (s && s.length === N) return s;
+  } catch {}
+  return Array.from({ length: N }, (_, i) => ({
+    id: i, home: '', away: '',
+    xgH: 1.4, xgA: 1.1,
+    euroH: false, euroA: false, daysRestH: 7, daysRestA: 7,
+    formH: 0.6, formA: 0.5, weatherPen: 0,
+    motivH: 1.0, motivA: 1.0, injuryH: 0, injuryA: 0,
+    h2hBias: 0,
+    oddsOpen1: '', oddsOpenX: '', oddsOpen2: '',
+    oddsCur1: '', oddsCurX: '', oddsCur2: '',
+    streck1: null, streckX: null, streck2: null,
+    selected: [], p1: 0.34, px: 0.33, p2: 0.33,
+    sharpFlags: [], streckFlags: []
+  }));
+}
+function saveMatches() { localStorage.setItem('sa_matches', JSON.stringify(matches)); }
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem('sa_history') || '[]'); } catch { return []; }
+}
+function saveHistory(h) { localStorage.setItem('sa_history', JSON.stringify(h)); }
+
+// ── Compute one match ──────────────────────────────────────────
+function computeMatch(m) {
+  const w = weights;
+  const euroPenH = m.euroH ? w.euroFatigue * Math.max(0, 1 - m.daysRestH / 7) : 0;
+  const euroPenA = m.euroA ? w.euroFatigue * Math.max(0, 1 - m.daysRestA / 7) : 0;
+
+  const lH = Math.max(0.05,
+    m.xgH * w.homeAdv
+    * (1 + w.formWeight * (m.formH - 0.5))
+    * (1 - euroPenH)
+    * (1 - w.motivWeight * (1 - m.motivH))
+    * (1 - w.injuryWeight * m.injuryH)
+    * (1 - w.weatherWeight * m.weatherPen)
+    * (1 + w.h2hWeight * (m.h2hBias || 0))
+  );
+  const lA = Math.max(0.05,
+    m.xgA
+    * (1 + w.formWeight * (m.formA - 0.5))
+    * (1 - euroPenA)
+    * (1 - w.motivWeight * (1 - m.motivA))
+    * (1 - w.injuryWeight * m.injuryA)
+    * (1 - w.weatherWeight * m.weatherPen * 0.8)
+    * (1 - w.h2hWeight * (m.h2hBias || 0))
+  );
+
+  let p1 = 0, px = 0, p2 = 0;
+  for (let h = 0; h <= 8; h++)
+    for (let a = 0; a <= 8; a++) {
+      const p = poissonPMF(h, lH) * poissonPMF(a, lA);
+      if (h > a) p1 += p; else if (h === a) px += p; else p2 += p;
+    }
+  const tot = p1 + px + p2;
+  m.p1 = p1 / tot; m.px = px / tot; m.p2 = p2 / tot;
+
+  // Sharp money
+  m.sharpFlags = [];
+  [['1', m.oddsOpen1, m.oddsCur1, m.p1],
+   ['X', m.oddsOpenX, m.oddsCurX, m.px],
+   ['2', m.oddsOpen2, m.oddsCur2, m.p2]].forEach(([s, op, cp, mp]) => {
+    const o = parseFloat(op), c = parseFloat(cp);
+    if (o > 1 && c > 1) {
+      const mov = (1/c) - (1/o);
+      if (mov > 0.05 && mp < 0.35) m.sharpFlags.push({ sign: s, type: 'sharp_against', mov });
+      if (mov < -0.04 && mp > 0.45) m.sharpFlags.push({ sign: s, type: 'value', mov });
+    }
+  });
+
+  // Streck flags
+  m.streckFlags = [];
+  [['1', m.streck1, m.p1*100],
+   ['X', m.streckX, m.px*100],
+   ['2', m.streck2, m.p2*100]].forEach(([s, streck, modelPct]) => {
+    if (streck == null) return;
+    const diff = modelPct - streck;
+    if (diff > 15) m.streckFlags.push({ sign: s, type: 'model_over', diff: Math.round(diff) });
+    if (diff < -15) m.streckFlags.push({ sign: s, type: 'public_over', diff: Math.round(Math.abs(diff)) });
+  });
+}
+
+function ip(odds) { const o = parseFloat(odds); return o > 1 ? 1/o : null; }
+function edge(p, odds) { const i = ip(odds); return i !== null ? p - i : null; }
+
+// ── Build system stats ─────────────────────────────────────────
+function buildSystem() {
+  const rows = matches.reduce((acc, m) => acc * Math.max(1, m.selected.length), 1);
+  const expected = matches.reduce((acc, m) => {
+    return acc + m.selected.reduce((s, sg) => s + (sg==='1'?m.p1:sg==='X'?m.px:m.p2), 0);
+  }, 0);
+  const p13 = Math.min(1, matches.reduce((acc, m) => {
+    return acc * Math.max(...m.selected.map(s => s==='1'?m.p1:s==='X'?m.px:m.p2), 0.001);
+  }, 1) * rows);
+  let type = rows<=4?'Enkelrad':rows<=32?'Halvgardering':rows<=128?'R-system':'M-system / fullgardering';
+  return { rows, expected: Math.round(expected*10)/10, p13, type };
+}
+
+// ── Render match list ──────────────────────────────────────────
+function renderMatches() {
+  const list = document.getElementById('match-list');
+  list.innerHTML = matches.map(m => matchCardHTML(m)).join('');
+  attachMatchEvents();
+  updateMetrics();
+}
+
+function matchCardHTML(m) {
+  const i = m.id;
+  const p1p = Math.round(m.p1*100), pxp = Math.round(m.px*100), p2p = Math.round(m.p2*100);
+  const sel1 = m.selected.includes('1'), selX = m.selected.includes('X'), sel2 = m.selected.includes('2');
+  const flagged = m.sharpFlags.length > 0 || m.streckFlags.length > 0;
+
+  const chips = [
+    m.euroH ? '<span class="chip chip-euro">Euro H</span>' : '',
+    m.euroA ? '<span class="chip chip-euro">Euro B</span>' : '',
+    m.weatherPen > 0.3 ? '<span class="chip chip-weather">Väder</span>' : '',
+    m.daysRestH < 4 ? '<span class="chip chip-rest">Vila H</span>' : '',
+    m.daysRestA < 4 ? '<span class="chip chip-rest">Vila B</span>' : '',
+    ...m.sharpFlags.map(f => `<span class="chip chip-sharp">Sharp ${f.sign}</span>`),
+    ...m.streckFlags.map(f => `<span class="chip chip-weather">${f.type==='model_over'?'Model>Folk':'Folk>Model'} ${f.sign}+${f.diff}%</span>`),
+  ].filter(Boolean).join('');
+
+  const e1 = edge(m.p1, m.oddsCur1), eX = edge(m.px, m.oddsCurX), e2 = edge(m.p2, m.oddsCur2);
+  const edgeHTML = [e1,eX,e2].some(e=>e!==null) ? `<div class="edge-row">
+    ${e1!==null?`<span class="edge-badge ${e1>0.03?'edge-pos':e1<-0.03?'edge-neg':'edge-neu'}">1: ${e1>=0?'+':''}${Math.round(e1*100)}pp</span>`:''}
+    ${eX!==null?`<span class="edge-badge ${eX>0.03?'edge-pos':eX<-0.03?'edge-neg':'edge-neu'}">X: ${eX>=0?'+':''}${Math.round(eX*100)}pp</span>`:''}
+    ${e2!==null?`<span class="edge-badge ${e2>0.03?'edge-pos':e2<-0.03?'edge-neg':'edge-neu'}">2: ${e2>=0?'+':''}${Math.round(e2*100)}pp</span>`:''}
+  </div>` : '';
+
+  const streckHTML = m.streck1||m.streckX||m.streck2 ? `<div class="streck-row">
+    <div class="streck-pill"><span>Streck 1</span><b>${m.streck1!=null?m.streck1+'%':'–'}</b></div>
+    <div class="streck-pill"><span>Streck X</span><b>${m.streckX!=null?m.streckX+'%':'–'}</b></div>
+    <div class="streck-pill"><span>Streck 2</span><b>${m.streck2!=null?m.streck2+'%':'–'}</b></div>
+  </div>` : '';
+
+  return `<div class="match-card${flagged?' flagged':''}" id="mc-${i}">
+    <div class="match-top">
+      <div class="match-num-badge">${i+1}</div>
+      <div class="match-names">
+        <input type="text" placeholder="Hemmalag" value="${m.home}" data-field="home" data-i="${i}">
+        <span class="match-vs">vs</span>
+        <input type="text" placeholder="Bortalag" value="${m.away}" data-field="away" data-i="${i}">
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;">${chips}</div>
+    </div>
+    <div class="match-inputs">
+      <div class="inp-grp"><div class="inp-lbl h">xG hem</div><input type="number" min="0" max="6" step="0.1" value="${m.xgH}" data-field="xgH" data-i="${i}"></div>
+      <div class="inp-grp"><div class="inp-lbl a">xG bort</div><input type="number" min="0" max="6" step="0.1" value="${m.xgA}" data-field="xgA" data-i="${i}"></div>
+      <div class="inp-grp"><div class="inp-lbl">Form H (0-1)</div><input type="number" min="0" max="1" step="0.05" value="${m.formH}" data-field="formH" data-i="${i}"></div>
+      <div class="inp-grp"><div class="inp-lbl">Form B (0-1)</div><input type="number" min="0" max="1" step="0.05" value="${m.formA}" data-field="formA" data-i="${i}"></div>
+      <div class="inp-grp"><div class="inp-lbl">H2H bias</div><input type="number" min="-1" max="1" step="0.1" value="${m.h2hBias||0}" data-field="h2hBias" data-i="${i}"></div>
+    </div>
+    <div class="match-inputs-2">
+      <div class="inp-grp"><div class="inp-lbl">Euro H</div><select data-field="euroH" data-i="${i}"><option value="nej"${!m.euroH?' selected':''}>Nej</option><option value="ja"${m.euroH?' selected':''}>Ja</option></select></div>
+      <div class="inp-grp"><div class="inp-lbl">Dagar vila H</div><input type="number" min="1" max="21" value="${m.daysRestH}" data-field="daysRestH" data-i="${i}"></div>
+      <div class="inp-grp"><div class="inp-lbl">Euro B</div><select data-field="euroA" data-i="${i}"><option value="nej"${!m.euroA?' selected':''}>Nej</option><option value="ja"${m.euroA?' selected':''}>Ja</option></select></div>
+      <div class="inp-grp"><div class="inp-lbl">Dagar vila B</div><input type="number" min="1" max="21" value="${m.daysRestA}" data-field="daysRestA" data-i="${i}"></div>
+      <div class="inp-grp"><div class="inp-lbl">Väder (0-1)</div><input type="number" min="0" max="1" step="0.1" value="${m.weatherPen}" data-field="weatherPen" data-i="${i}"></div>
+    </div>
+    <div class="match-inputs-2">
+      <div class="inp-grp"><div class="inp-lbl">Odds ö. 1</div><input type="number" step="0.01" placeholder="2.10" value="${m.oddsOpen1}" data-field="oddsOpen1" data-i="${i}"></div>
+      <div class="inp-grp"><div class="inp-lbl">Odds ö. X</div><input type="number" step="0.01" placeholder="3.40" value="${m.oddsOpenX}" data-field="oddsOpenX" data-i="${i}"></div>
+      <div class="inp-grp"><div class="inp-lbl">Odds ö. 2</div><input type="number" step="0.01" placeholder="3.20" value="${m.oddsOpen2}" data-field="oddsOpen2" data-i="${i}"></div>
+      <div class="inp-grp"><div class="inp-lbl">Odds nu 1</div><input type="number" step="0.01" placeholder="1.95" value="${m.oddsCur1}" data-field="oddsCur1" data-i="${i}"></div>
+      <div class="inp-grp"><div class="inp-lbl">Odds nu X</div><input type="number" step="0.01" placeholder="3.50" value="${m.oddsCurX}" data-field="oddsCurX" data-i="${i}"></div>
+    </div>
+    <div class="prob-row">
+      <div class="prob-bar">
+        <div class="pb-1" style="width:${p1p}%"></div>
+        <div class="pb-x" style="width:${pxp}%"></div>
+        <div class="pb-2" style="width:${p2p}%"></div>
+      </div>
+      <div class="prob-nums">
+        <span class="p1n">1: ${p1p}%</span>
+        <span class="pxn">X: ${pxp}%</span>
+        <span class="p2n">2: ${p2p}%</span>
+      </div>
+    </div>
+    ${edgeHTML}
+    ${streckHTML}
+    <div class="sign-row">
+      <div class="sign-btn s1${sel1?' on':''}" data-i="${i}" data-sign="1">1</div>
+      <div class="sign-btn sX${selX?' on':''}" data-i="${i}" data-sign="X">X</div>
+      <div class="sign-btn s2${sel2?' on':''}" data-i="${i}" data-sign="2">2</div>
+    </div>
+  </div>`;
+}
+
+function attachMatchEvents() {
+  document.querySelectorAll('[data-field][data-i]').forEach(el => {
+    el.addEventListener('change', e => {
+      const i = parseInt(e.target.dataset.i);
+      const f = e.target.dataset.field;
+      let v = e.target.value;
+      if (f === 'euroH' || f === 'euroA') v = v === 'ja';
+      else if (!['home','away'].includes(f)) v = parseFloat(v) || 0;
+      matches[i][f] = v;
+      computeMatch(matches[i]);
+      saveMatches();
+      const card = document.getElementById('mc-'+i);
+      if (card) card.outerHTML = matchCardHTML(matches[i]);
+      attachMatchEvents();
+      updateMetrics();
+    });
+  });
+  document.querySelectorAll('.sign-btn').forEach(el => {
+    el.addEventListener('click', e => {
+      const i = parseInt(e.target.dataset.i);
+      const s = e.target.dataset.sign;
+      const m = matches[i];
+      if (m.selected.includes(s)) m.selected = m.selected.filter(x=>x!==s);
+      else m.selected.push(s);
+      saveMatches();
+      const card = document.getElementById('mc-'+i);
+      if (card) card.outerHTML = matchCardHTML(matches[i]);
+      attachMatchEvents();
+      updateMetrics();
+    });
+  });
+}
+
+function updateMetrics() {
+  const sure = matches.filter(m=>m.selected.length===1).length;
+  const gard = matches.filter(m=>m.selected.length>=2).length;
+  const avgConf = matches.reduce((a,m)=>a+Math.max(m.p1,m.px,m.p2),0)/N;
+  const avgEdge = matches.reduce((a,m)=>{
+    const s=m.selected[0]; if(!s) return a;
+    const p=s==='1'?m.p1:s==='X'?m.px:m.p2;
+    return a+(p-1/3);
+  },0)/N;
+  const { rows } = buildSystem();
+
+  const confEl = document.getElementById('m-conf');
+  confEl.textContent = Math.round(avgConf*100)+'%';
+  confEl.className = 'metric-value '+(avgConf>0.55?'green':avgConf>0.45?'amber':'red');
+  document.getElementById('m-sure').textContent = sure;
+  document.getElementById('m-gard').textContent = gard;
+  const eEl = document.getElementById('m-edge');
+  eEl.textContent = (avgEdge>=0?'+':'')+Math.round(avgEdge*100)+'pp';
+  eEl.className = 'metric-value '+(avgEdge>0.05?'green':avgEdge>-0.05?'amber':'red');
+  document.getElementById('m-rows').textContent = rows+' rader';
+}
+
+function updateSystemPanel() {
+  const { rows, expected, p13, type } = buildSystem();
+  document.getElementById('sys-rows').textContent = rows+' rader';
+  document.getElementById('sys-type-badge').textContent = type;
+  document.getElementById('sys-detail').innerHTML =
+    `Förväntade rätta tecken: <b>${expected}/13</b><br>
+     Approx P(13 rätt): <b>${(p13*100).toFixed(3)}%</b><br>
+     Kostnad: <b>${rows} kr</b> (1 kr/rad)`;
+
+  const summary = document.getElementById('sign-summary');
+  summary.innerHTML = matches.map((m,i) => {
+    const best = Math.max(m.p1,m.px,m.p2);
+    const conf = best>0.55?'high':best>0.42?'mid':'low';
+    const name = (m.home||'Lag H')+' – '+(m.away||'Lag B');
+    const signs = m.selected.length ? m.selected.map(s=>`<span class="sign-tag t${s}">${s}</span>`).join('') : '<span style="color:var(--muted);font-size:11px;">–</span>';
+    return `<div class="ss-row">
+      <span style="color:var(--muted);font-size:12px;min-width:20px;">${i+1}</span>
+      <span style="flex:1;font-size:12px;">${name}</span>
+      <div class="ss-signs">${signs}</div>
+      <span class="conf-tag conf-${conf}">${Math.round(best*100)}%</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Params / sliders ───────────────────────────────────────────
+function renderSliders() {
+  const wrap = document.getElementById('sliders-main');
+  wrap.innerHTML = SLIDER_DEFS.map(s => `
+    <div class="slider-row">
+      <div class="slider-meta">
+        <span class="slider-name">${s.label}</span>
+        <span class="slider-val-display" id="sv-${s.key}">${weights[s.key].toFixed(2)}</span>
+      </div>
+      <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${weights[s.key]}" data-wkey="${s.key}">
+    </div>
+  `).join('');
+  wrap.querySelectorAll('input[type=range]').forEach(el => {
+    el.addEventListener('input', e => {
+      const k = e.target.dataset.wkey;
+      weights[k] = parseFloat(e.target.value);
+      document.getElementById('sv-'+k).textContent = weights[k].toFixed(2);
+      saveWeights();
+      matches.forEach(m => computeMatch(m));
+      updateMetrics();
+    });
+  });
+}
+
+// ── History ────────────────────────────────────────────────────
+function renderHistory() {
+  const h = loadHistory();
+  const tbody = document.getElementById('hist-tbody');
+  if (!h.length) { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted);padding:20px;">Inga omgångar loggade ännu.</td></tr>'; return; }
+
+  let total=0, correct=0, perfect=0;
+  tbody.innerHTML = h.map(r => {
+    const n = r.matches ? r.matches.filter(m=>m.actual).length : 0;
+    const c = r.matches ? r.matches.filter(m=>m.actual&&m.predicted===m.actual).length : 0;
+    total += n; correct += c;
+    if (c === 13) perfect++;
+    const cls = c>=13?'correct-13':c>=11?'correct-11':'correct-low';
+    return `<tr>
+      <td style="font-family:var(--mono)">${r.round}</td>
+      <td style="color:var(--muted)">${r.date||''}</td>
+      <td class="correct-count ${cls}">${c}${n>0&&n<13?' ('+n+')':''}/13</td>
+      <td style="color:var(--muted)">${n?Math.round(c/n*100)+'%':'–'}</td>
+      <td><button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="logResults('${r.round}')">Uppdatera</button></td>
+    </tr>`;
+  }).join('');
+
+  const acc = total ? Math.round(correct/total*100) : null;
+  const avg = h.length ? Math.round(h.reduce((a,r)=>{
+    const c=r.matches?r.matches.filter(m=>m.actual&&m.predicted===m.actual).length:0; return a+c;
+  },0)/h.length*10)/10 : null;
+
+  document.getElementById('h-rounds').textContent = h.length;
+  document.getElementById('h-acc').textContent = acc !== null ? acc+'%' : '–';
+  document.getElementById('h-acc').className = 'metric-value '+(acc>=50?'green':acc>=35?'amber':'red');
+  document.getElementById('h-avg').textContent = avg !== null ? avg : '–';
+  document.getElementById('h-avg').className = 'metric-value '+(avg>=10?'green':avg>=8?'amber':'red');
+  document.getElementById('h-perfect').textContent = perfect;
+  document.getElementById('sb-avg').textContent = avg !== null ? avg : '–';
+  document.getElementById('sb-rounds').textContent = h.length+' omgångar loggade';
+}
+
+window.logResults = function(round) {
+  const results = prompt(`Ange 13 utfall för omgång ${round} (t.ex. 1,X,2,1,1,X,2,1,X,2,1,1,X):`);
+  if (!results) return;
+  const r = results.split(',').map(s=>s.trim().toUpperCase());
+  if (r.length !== 13) { alert('Behöver exakt 13 utfall.'); return; }
+
+  const h = loadHistory();
+  const idx = h.findIndex(x=>String(x.round)===String(round));
+  if (idx >= 0) {
+    h[idx].matches = h[idx].matches.map((m,i)=>({ ...m, actual: r[i] }));
+  } else {
+    const rd = { round, date: new Date().toLocaleDateString('sv-SE'), matches: matches.map((m,i)=>({
+      home: m.home, away: m.away, predicted: m.selected[0]||'?', actual: r[i], p1:m.p1, px:m.px, p2:m.p2
+    }))};
+    h.unshift(rd);
+  }
+  saveHistory(h);
+  renderHistory();
+  runCalibration();
+};
+
+window.exportHistoryCSV = function() {
+  const h = loadHistory();
+  const rows = [['Omgång','Datum','Hemmalag','Bortalag','Förutsagt','Utfall','P1','PX','P2','Rätt']];
+  h.forEach(r=>(r.matches||[]).forEach(m=>rows.push([r.round,r.date,m.home,m.away,m.predicted||'',m.actual||'',(m.p1||0).toFixed(3),(m.px||0).toFixed(3),(m.p2||0).toFixed(3),m.predicted===m.actual?1:0])));
+  const csv = rows.map(r=>r.join(',')).join('\n');
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([csv],{type:'text/csv'})),download:'stryktips.csv'});
+  a.click();
+};
+
+window.clearHistory = function() {
+  if (confirm('Radera all historik? (Kan inte ångras)')) { localStorage.removeItem('sa_history'); renderHistory(); }
+};
+
+// ── Calibration ────────────────────────────────────────────────
+window.runCalibration = function() {
+  const h = loadHistory();
+  const all = h.flatMap(r=>(r.matches||[]).filter(m=>m.actual));
+  if (all.length < 10) { alert('Behöver minst 10 matchresultat för kalibrering.'); return; }
+
+  const homeWinRate = all.filter(m=>m.actual==='1').length / all.length;
+  const homeWinPred = all.reduce((a,m)=>a+(m.p1||0),0) / all.length;
+  const delta = (homeWinPred - homeWinRate) * 0.1;
+  weights.homeAdv = Math.max(1.0, Math.min(1.6, weights.homeAdv - delta));
+  saveWeights();
+
+  const brier = all.reduce((a,m)=>{
+    return a + Math.pow((m.p1||0)-(m.actual==='1'?1:0),2)+Math.pow((m.px||0)-(m.actual==='X'?1:0),2)+Math.pow((m.p2||0)-(m.actual==='2'?1:0),2);
+  },0) / (all.length*3);
+
+  document.getElementById('brier-val').textContent = brier.toFixed(4);
+  document.getElementById('calib-rounds').textContent = all.length;
+  renderSliders();
+  alert(`Kalibrering klar!\nHemmafördel justerad till ${weights.homeAdv.toFixed(2)}\nBrier score: ${brier.toFixed(4)}`);
+};
+
+// ── Scraper ────────────────────────────────────────────────────
+const COWORK_PROMPT_TEXT = `Gå till https://www.svenskaspel.se/stryktipset och hämta för varje match:
+1. Matchnummer (1–13)
+2. Hemmalag & bortalag
+3. Spelstopptid
+4. Streckprocent för 1, X, 2
+5. Odds för 1, X, 2 (om tillgängligt)
+
+Returnera ENBART ett JSON-objekt med strukturen:
+{
+  "round": "<omgångsnummer>",
+  "deadline": "<YYYY-MM-DD HH:MM>",
+  "matches": [
+    { "num": 1, "home": "Lag A", "away": "Lag B",
+      "streck1": 45.2, "streckX": 28.1, "streck2": 26.7,
+      "odds1": 2.10, "oddsX": 3.40, "odds2": 3.20 }
+  ]
+}`;
+
+document.getElementById('cowork-prompt').textContent = COWORK_PROMPT_TEXT;
+
+window.copyPrompt = function() {
+  navigator.clipboard.writeText(COWORK_PROMPT_TEXT).then(()=>{
+    const btn = document.querySelector('[onclick="copyPrompt()"]');
+    btn.textContent = '✓ Kopierad!';
+    setTimeout(()=>btn.textContent='⎘ Kopiera prompt', 2000);
+  });
+};
+
+window.importJSON = function() {
+  const raw = document.getElementById('json-input').value.trim();
+  const status = document.getElementById('scraper-status');
+  try {
+    const clean = raw.replace(/^```json\n?/,'').replace(/\n?```$/,'');
+    const data = JSON.parse(clean);
+    if (!data.matches || data.matches.length !== 13) throw new Error('Behöver exakt 13 matcher i JSON');
+
+    data.matches.forEach((s, i) => {
+      if (i >= N) return;
+      const m = matches[i];
+      if (s.home) m.home = s.home;
+      if (s.away) m.away = s.away;
+      if (s.streck1 != null) m.streck1 = s.streck1;
+      if (s.streckX != null) m.streckX = s.streckX;
+      if (s.streck2 != null) m.streck2 = s.streck2;
+      if (s.odds1)  { m.oddsCur1 = s.odds1; if(!m.oddsOpen1) m.oddsOpen1 = s.odds1; }
+      if (s.oddsX)  { m.oddsCurX = s.oddsX; if(!m.oddsOpenX) m.oddsOpenX = s.oddsX; }
+      if (s.odds2)  { m.oddsCur2 = s.odds2; if(!m.oddsOpen2) m.oddsOpen2 = s.odds2; }
+      computeMatch(m);
+    });
+
+    if (data.deadline) {
+      deadline = data.deadline;
+      startCountdown();
+    }
+
+    saveMatches();
+    renderMatches();
+    status.textContent = `✓ ${data.matches.length} matcher importerade (omgång ${data.round})`;
+    status.className = 'scraper-status ok';
+    switchPanel('matches');
+  } catch (e) {
+    status.textContent = '✕ Fel: ' + e.message;
+    status.className = 'scraper-status err';
+  }
+};
+
+let countdownInterval;
+function startCountdown() {
+  clearInterval(countdownInterval);
+  const els = [document.getElementById('countdown-big'), document.getElementById('countdown-sidebar')];
+  const update = () => {
+    if (!deadline) return;
+    const d = new Date(deadline), now = new Date(), diff = d - now;
+    if (diff <= 0) { els.forEach(e=>e&&(e.textContent='STÄNGT')); clearInterval(countdownInterval); return; }
+    const h = Math.floor(diff/3600000), m = Math.floor(diff%3600000/60000), s = Math.floor(diff%60000/1000);
+    const txt = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} till spelstopp`;
+    els.forEach(e=>e&&(e.textContent=txt));
+  };
+  update();
+  countdownInterval = setInterval(update, 1000);
+}
+
+// ── Global actions ─────────────────────────────────────────────
+window.calcAll = function() {
+  matches.forEach(m => computeMatch(m));
+  renderMatches();
+  updateSystemPanel();
+  saveMatches();
+};
+
+window.autoSelect = function() {
+  const threshold = parseFloat(prompt('Garderingskvot (0.10 = täck om 2:a bäst är inom 10pp av bästa):', '0.15') || '0.15');
+  matches.forEach(m => {
+    const probs = [['1',m.p1],['X',m.px],['2',m.p2]].sort((a,b)=>b[1]-a[1]);
+    m.selected = [probs[0][0]];
+    if (probs[1][1] >= probs[0][1] - threshold) m.selected.push(probs[1][0]);
+    if (probs[0][1] < 0.38) m.selected.push(probs[2][0]);
+  });
+  saveMatches();
+  renderMatches();
+  updateSystemPanel();
+};
+
+window.resetAll = function() {
+  if (!confirm('Nollställ alla matchdata?')) return;
+  matches = Array.from({length:N},(_,i)=>({
+    id:i,home:'',away:'',xgH:1.4,xgA:1.1,euroH:false,euroA:false,daysRestH:7,daysRestA:7,
+    formH:0.6,formA:0.5,weatherPen:0,motivH:1.0,motivA:1.0,injuryH:0,injuryA:0,h2hBias:0,
+    oddsOpen1:'',oddsOpenX:'',oddsOpen2:'',oddsCur1:'',oddsCurX:'',oddsCur2:'',
+    streck1:null,streckX:null,streck2:null,selected:[],p1:0.34,px:0.33,p2:0.33,sharpFlags:[],streckFlags:[]
+  }));
+  saveMatches(); renderMatches();
+};
+
+// ── Nav ────────────────────────────────────────────────────────
+window.switchPanel = function(name) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('panel-'+name)?.classList.add('active');
+  document.querySelector(`[data-panel="${name}"]`)?.classList.add('active');
+  if (name==='system') updateSystemPanel();
+  if (name==='history') renderHistory();
+};
+
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click',()=>switchPanel(el.dataset.panel));
+});
+
+// ── Init ───────────────────────────────────────────────────────
+matches.forEach(m => computeMatch(m));
+renderMatches();
+renderSliders();
+renderHistory();
+updateSystemPanel();
+</script>
+</body>
+</html>
